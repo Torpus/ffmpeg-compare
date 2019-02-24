@@ -1,6 +1,6 @@
 # ffmpeg-compare-script
 
-ffmpeg-compare-script `vmaf branch` takes a single argument, the source file.  It then creates a composite video to use as a reference by splicing together the first 3s of every minute in the video to create a file ~ 5% of the original size.  This reference video is then run through a number of encoding processes using the list of settings below.  Each is compared against the reference using netflix's vmaf comparison and the 'vmaf_4k_v0.6.1.pkl' model.  I am targeting overall quality over reduced filesize so the resulting file may not save a ton of space compared to the source.  Future enhancement is to add a target size percentage.
+ffmpeg-compare-script takes a single argument, the source file.  It then creates a composite video to use as a reference by splicing together the first 3s of every minute in the video to create a file ~ 5% of the original size.  This reference video is then run through a number of encoding processes using the list of settings below.  Each is compared against the reference using netflix's vmaf comparison and the 'vmaf_4k_v0.6.1.pkl' model.  I am targeting overall quality over reduced filesize so the resulting file may not save a ton of space compared to the source.  Future enhancement is to add a target size percentage.
 > it takes a while, be patient
 
 - preset: ultrafast, superfast, veryfast, faster, fast, medium, slow, slower, veryslow
