@@ -82,6 +82,7 @@ do
                             BEST_PRESET=$PRESET
                             BEST_TUNE=$TUNE
                             BEST_CRF=$CRF
+                            break
                         else
                             echo Same vmaf="$VMAF" but $(bc <<< "scale=5; $THIS_FILESIZE / $PREV_FILESIZE")X larger file size
                             rm "$BASE_DIR"/"$THIS_FILE".*
@@ -94,6 +95,7 @@ do
                         BEST_PRESET=$PRESET
                         BEST_TUNE=$TUNE
                         BEST_CRF=$CRF
+                        break
                     fi
                 else
                     echo Lower quality result: vmaf="$VMAF" \< "$PREV_VMAF".  Retaining best preset=$BEST_PRESET, best tune=$BEST_TUNE, best crf=$BEST_CRF
