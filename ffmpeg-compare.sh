@@ -27,7 +27,11 @@ bytesToHuman () {
 }
 
 flessthan() {
-    awk -v n1="$1" -v n2="$2" 'BEGIN {if (n1+0<=n2+0) exit 0; exit 1}'
+    awk -v n1="$1" -v n2="$2" 'BEGIN {if (n1+0<n2+0) exit 0; exit 1}'
+}
+
+fequal() {
+    awk -v n1="$1" -v n2="$2" 'BEGIN {if (n1+0=n2+0) exit 0; exit 1}'
 }
 
 echo Starting processing "$SOURCE_FILE"
@@ -69,35 +73,29 @@ do
                 VMAF=$(ffmpeg -i "$BASE_DIR"/"$THIS_FILE".mkv -i "$REF_FILE" -lavfi libvmaf="pool=perc5:log_fmt=json:model_path=model/vmaf_4k_v0.6.1.pkl" -f null - 2>&1 | grep "\[libvmaf" | grep "VMAF score" | grep -Poh "([0-9]{1,3}\.[0-9]{1,15})")
                 if flessthan "$PREV_VMAF" "$VMAF"
                 then
+                    echo New best with vmaf="$VMAF" and "$(bc <<< "scale=5; $THIS_FILESIZE / $PREV_FILESIZE")"X file size
+                    PREV_FILE="$BASE_DIR"/"$THIS_FILE"
+                    PREV_FILESIZE=$THIS_FILESIZE
+                    PREV_VMAF=$VMAF
+                    BEST_PRESET=$PRESET
+                    BEST_TUNE=$TUNE
+                    BEST_CRF=$CRF
                     if [ "$PREV_FILE" != "" ]
                     then
-                        if [ "$THIS_FILESIZE" -lt "$PREV_FILESIZE" ]
-                        then
-                            echo New best with vmaf="$VMAF" and "$(bc <<< "scale=5; $THIS_FILESIZE / $PREV_FILESIZE")"X file size
-                            rm "$PREV_FILE".*
-                            PREV_FILE="$BASE_DIR"/"$THIS_FILE"
-                            PREV_FILESIZE=$THIS_FILESIZE
-                            PREV_VMAF=$VMAF
-                            BEST_PRESET=$PRESET
-                            BEST_TUNE=$TUNE
-                            BEST_CRF=$CRF
-                        else
-                            echo Same vmaf="$VMAF" but "$(bc <<< "scale=5; $THIS_FILESIZE / $PREV_FILESIZE")"X larger file size
-                            rm "$BASE_DIR"/"$THIS_FILE".*
-                            break
-                        fi
+                        rm "$PREV_FILE".*
                     else
-                        echo Retaining preset="$PRESET", crf="$CRF", and tune="$TUNE" with vmaf="$VMAF" and 0"$(bc <<< "scale=5; $THIS_FILESIZE / $PREV_FILESIZE")"X file size
-                        PREV_FILE="$BASE_DIR"/"$THIS_FILE"
-                        PREV_FILESIZE=$THIS_FILESIZE
-                        PREV_VMAF=$VMAF
-                        BEST_PRESET=$PRESET
-                        BEST_TUNE=$TUNE
-                        BEST_CRF=$CRF
                         break
                     fi
+                elif fequal "$PREV_VMAF" "$VMAF"
+                then
+                    if [ "$THIS_FILESIZE" -lt "$PREV_FILESIZE" ]
+                    then
+                        echo Same quality result: vmaf="$VMAF" but smaller file size.  New best with vmaf="$VMAF" and "$(bc <<< "scale=5; $THIS_FILESIZE / $PREV_FILESIZE")"X file size
+                    else
+                        echo Same quality result: vmaf="$VMAF" but larger or same file size.  Retaining previous best preset="$BEST_PRESET", best tune="$BEST_TUNE", best crf="$BEST_CRF"
+                    fi
                 else
-                    echo Lower quality result: vmaf="$VMAF" \< "$PREV_VMAF".  Retaining best preset="$BEST_PRESET", best tune="$BEST_TUNE", best crf="$BEST_CRF"
+                    echo Lower quality result: vmaf="$VMAF" \< "$PREV_VMAF".  Retaining previous best preset="$BEST_PRESET", best tune="$BEST_TUNE", best crf="$BEST_CRF"
                     rm "$BASE_DIR"/"$THIS_FILE".*
                     break
                 fi
