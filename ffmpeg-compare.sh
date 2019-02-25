@@ -1,7 +1,6 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 SOURCE_FILE=$1
-SCREENS_DIR=$BASE_DIR
 PREV_FILE=""
 PREV_VMAF=0
 PRESETS=( ultrafast superfast veryfast faster fast medium slow slower veryslow )
@@ -17,21 +16,21 @@ mkdir -p "$TEMP_DIR"
 grabSnippet() {
     START_OFFSET=${1:-0}
     OFFSET_ARRAY=" $OFFSET_ARRAY $START_OFFSET "
-    if [ $(($START_OFFSET + 3)) -lt $ORIGINAL_DURATION ]
+    if [ "$(($START_OFFSET + 3))" -lt "$ORIGINAL_DURATION" ]
     then
-        grabSnippet $(($START_OFFSET + 60))
+        grabSnippet "$(($START_OFFSET + 60))"
     fi
 }
 
 bytesToHuman () {
-    echo $(numfmt --to=iec-i --format='%.5f' $1)
+    numfmt --to=iec-i --format='%.5f' "$1"
 }
 
 flessthan() {
     awk -v n1="$1" -v n2="$2" 'BEGIN {if (n1+0<=n2+0) exit 0; exit 1}'
 }
 
-echo Starting processing $SOURCE_FILE
+echo Starting processing "$SOURCE_FILE"
 ORIGINAL_DURATION=$(ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "$SOURCE_FILE" | grep -Poh -m 1 "([0-9]{1,9})" | head -1)
 
 grabSnippet
@@ -45,10 +44,10 @@ do
 done
 REF_FILE="$BASE_DIR"/"$BASE_FILENAME"_source.mkv
 ffmpeg -loglevel panic -f concat -i "$TEMP_DIR"/"$TEMP_FILE_LIST" -c:v copy -an -sn "$REF_FILE"
-rm -rf $TEMP_DIR
+rm -rf "$TEMP_DIR"
 REF_FILESIZE=$(stat -c%s "$REF_FILE")
 PREV_FILESIZE="$REF_FILESIZE"
-echo Created composite video with filesize $(bytesToHuman $REF_FILESIZE)
+echo Created composite video with filesize "$(bytesToHuman "$REF_FILESIZE")"
 
 BEST_PRESET=""
 BEST_TUNE=""
@@ -62,19 +61,19 @@ do
         do
             echo Running with preset="$PRESET", crf="$CRF", and tune="$TUNE"
             THIS_FILE="$BASE_FILENAME"_"$PRESET"_crf"$CRF"_"$TUNE"
-            ffmpeg -loglevel panic -i "$REF_FILE" -c:v libx264 -crf $CRF -preset $PRESET -tune $TUNE -sn -an "$BASE_DIR"/"$THIS_FILE".mkv
+            ffmpeg -loglevel panic -i "$REF_FILE" -c:v libx264 -crf "$CRF" -preset "$PRESET" -tune "$TUNE" -sn -an "$BASE_DIR"/"$THIS_FILE".mkv
             THIS_FILESIZE=$(stat -c%s "$BASE_DIR"/"$THIS_FILE".mkv)
-            if [ $THIS_FILESIZE -lt $REF_FILESIZE ]
+            if [ "$THIS_FILESIZE" -lt "$REF_FILESIZE" ]
             then
-                echo Continuing with VMAF. 0$(bc <<< "scale=5; $THIS_FILESIZE / $REF_FILESIZE")X file size
+                echo Continuing with VMAF. 0"$(bc <<< "scale=5; $THIS_FILESIZE / $REF_FILESIZE")"X file size
                 VMAF=$(ffmpeg -i "$BASE_DIR"/"$THIS_FILE".mkv -i "$REF_FILE" -lavfi libvmaf="pool=perc5:log_fmt=json:model_path=model/vmaf_4k_v0.6.1.pkl" -f null - 2>&1 | grep "\[libvmaf" | grep "VMAF score" | grep -Poh "([0-9]{1,3}\.[0-9]{1,15})")
-                if flessthan $PREV_VMAF $VMAF
+                if flessthan "$PREV_VMAF" "$VMAF"
                 then
                     if [ "$PREV_FILE" != "" ]
                     then
-                        if [ $THIS_FILESIZE -lt $PREV_FILESIZE ]
+                        if [ "$THIS_FILESIZE" -lt "$PREV_FILESIZE" ]
                         then
-                            echo New best with vmaf="$VMAF" and $(bc <<< "scale=5; $THIS_FILESIZE / $PREV_FILESIZE")X file size
+                            echo New best with vmaf="$VMAF" and "$(bc <<< "scale=5; $THIS_FILESIZE / $PREV_FILESIZE")"X file size
                             rm "$PREV_FILE".*
                             PREV_FILE="$BASE_DIR"/"$THIS_FILE"
                             PREV_FILESIZE=$THIS_FILESIZE
@@ -83,12 +82,12 @@ do
                             BEST_TUNE=$TUNE
                             BEST_CRF=$CRF
                         else
-                            echo Same vmaf="$VMAF" but $(bc <<< "scale=5; $THIS_FILESIZE / $PREV_FILESIZE")X larger file size
+                            echo Same vmaf="$VMAF" but "$(bc <<< "scale=5; $THIS_FILESIZE / $PREV_FILESIZE")"X larger file size
                             rm "$BASE_DIR"/"$THIS_FILE".*
                             break
                         fi
                     else
-                        echo Retaining preset="$PRESET", crf="$CRF", and tune="$TUNE" with vmaf="$VMAF" and 0$(bc <<< "scale=5; $THIS_FILESIZE / $PREV_FILESIZE")X file size
+                        echo Retaining preset="$PRESET", crf="$CRF", and tune="$TUNE" with vmaf="$VMAF" and 0"$(bc <<< "scale=5; $THIS_FILESIZE / $PREV_FILESIZE")"X file size
                         PREV_FILE="$BASE_DIR"/"$THIS_FILE"
                         PREV_FILESIZE=$THIS_FILESIZE
                         PREV_VMAF=$VMAF
@@ -98,16 +97,16 @@ do
                         break
                     fi
                 else
-                    echo Lower quality result: vmaf="$VMAF" \< "$PREV_VMAF".  Retaining best preset=$BEST_PRESET, best tune=$BEST_TUNE, best crf=$BEST_CRF
+                    echo Lower quality result: vmaf="$VMAF" \< "$PREV_VMAF".  Retaining best preset="$BEST_PRESET", best tune="$BEST_TUNE", best crf="$BEST_CRF"
                     rm "$BASE_DIR"/"$THIS_FILE".*
                     break
                 fi
             else
-                echo Too big: $(bc <<< "scale=2; $THIS_FILESIZE / $REF_FILESIZE")X file size
+                echo Too big: "$(bc <<< "scale=2; $THIS_FILESIZE / $REF_FILESIZE")"X file size
                 rm "$BASE_DIR"/"$THIS_FILE".mkv
             fi
         done
     done
 done
 
-echo best preset=$BEST_PRESET, best tune=$BEST_TUNE, best crf=$BEST_CRF
+echo best preset="$BEST_PRESET", best tune="$BEST_TUNE", best crf="$BEST_CRF"
