@@ -4,7 +4,7 @@ SOURCE_FILE=$1
 PREV_FILE=""
 PREV_VMAF=0
 PRESETS=( ultrafast superfast veryfast faster fast medium slow slower veryslow )
-CRFS=( 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 )
+CRFS=( 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 )
 TUNES=( grain film animation )
 TEMP_FILE_LIST=temp_file_list.txt
 BASE_FILENAME=$(basename "$SOURCE_FILE" | cut -f 1 -d '.')
@@ -23,12 +23,13 @@ grabSnippet() {
 }
 
 updateBest() {
+    echo New best preset="$BEST_PRESET", tune="$BEST_TUNE", crf="$BEST_CRF" with vmaf="$VMAF" and "$(bc <<< "scale=5; $THIS_FILESIZE / $PREV_FILESIZE")"X file size
     PREV_FILE="$BASE_DIR"/"$THIS_FILE"
-    PREV_FILESIZE=$THIS_FILESIZE
-    PREV_VMAF=$VMAF
-    BEST_PRESET=$PRESET
-    BEST_TUNE=$TUNE
-    BEST_CRF=$CRF
+    PREV_FILESIZE="$THIS_FILESIZE"
+    PREV_VMAF="$VMAF"
+    BEST_PRESET="$PRESET"
+    BEST_TUNE="$TUNE"
+    BEST_CRF="$CRF"
 }
 
 bytesToHuman () {
@@ -53,7 +54,7 @@ for i in "${!OFFSET_ARRAY[@]}"
 do
     TEMP_FILE="$BASE_FILENAME"_source_"$i".mkv
     echo "file '$TEMP_FILE'" >> "$TEMP_DIR"/"$TEMP_FILE_LIST"
-    ffmpeg -loglevel panic -ss "${OFFSET_ARRAY[$i]}" -i "$SOURCE_FILE" -t "00:00:03" -c:v copy -avoid_negative_ts 1 -sn -an "$TEMP_DIR"/"$TEMP_FILE"
+    ffmpeg -loglevel panic -ss "${OFFSET_ARRAY[$i]}" -noaccurate_seek -i "$SOURCE_FILE" -t "00:00:03" -c:v copy -avoid_negative_ts 1 -sn -an "$TEMP_DIR"/"$TEMP_FILE"
 done
 REF_FILE="$BASE_DIR"/"$BASE_FILENAME"_source.mkv
 ffmpeg -loglevel panic -f concat -i "$TEMP_DIR"/"$TEMP_FILE_LIST" -c:v copy -an -sn "$REF_FILE"
@@ -82,7 +83,6 @@ do
                 VMAF=$(ffmpeg -i "$BASE_DIR"/"$THIS_FILE".mkv -i "$REF_FILE" -lavfi libvmaf="pool=perc5:log_fmt=json:model_path=model/vmaf_4k_v0.6.1.pkl" -f null - 2>&1 | grep "\[libvmaf" | grep "VMAF score" | grep -Poh "([0-9]{1,3}\.[0-9]{1,15})")
                 if flessthan "$PREV_VMAF" "$VMAF"
                 then
-                    echo New best preset="$BEST_PRESET", tune="$BEST_TUNE", crf="$BEST_CRF" with vmaf="$VMAF" and "$(bc <<< "scale=5; $THIS_FILESIZE / $PREV_FILESIZE")"X file size
                     updateBest
                     if [ "$PREV_FILE" != "" ]
                     then
@@ -92,7 +92,7 @@ do
                 then
                     if [ "$THIS_FILESIZE" -lt "$PREV_FILESIZE" ]
                     then
-                        echo Same quality result: vmaf="$VMAF" but smaller file size.  New best preset="$BEST_PRESET", tune="$BEST_TUNE", crf="$BEST_CRF" with vmaf="$VMAF" and "$(bc <<< "scale=5; $THIS_FILESIZE / $PREV_FILESIZE")"X file size
+                        echo Same quality result: vmaf="$VMAF" but smaller file size.
                         updateBest
                     else
                         echo Same quality result: vmaf="$VMAF" but larger or same file size.  Retaining previous best preset="$BEST_PRESET", tune="$BEST_TUNE", crf="$BEST_CRF"
