@@ -4,7 +4,7 @@ SOURCE_FILE=$1
 PREV_FILE=""
 PREV_VMAF=0
 PRESETS=( ultrafast superfast veryfast faster fast medium slow slower veryslow )
-CRFS=( 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 )
+CRFS=( 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 )
 TUNES=( grain film animation )
 TEMP_FILE_LIST=temp_file_list.txt
 BASE_FILENAME=$(basename "$SOURCE_FILE" | cut -f 1 -d '.')
@@ -22,6 +22,15 @@ grabSnippet() {
     fi
 }
 
+updateBest() {
+    PREV_FILE="$BASE_DIR"/"$THIS_FILE"
+    PREV_FILESIZE=$THIS_FILESIZE
+    PREV_VMAF=$VMAF
+    BEST_PRESET=$PRESET
+    BEST_TUNE=$TUNE
+    BEST_CRF=$CRF
+}
+
 bytesToHuman () {
     numfmt --to=iec-i --format='%.5f' "$1"
 }
@@ -31,7 +40,7 @@ flessthan() {
 }
 
 fequal() {
-    awk -v n1="$1" -v n2="$2" 'BEGIN {if (n1+0=n2+0) exit 0; exit 1}'
+    awk -v n1="$1" -v n2="$2" 'BEGIN {if (n1+0==n2+0) exit 0; exit 1}'
 }
 
 echo Starting processing "$SOURCE_FILE"
@@ -69,28 +78,22 @@ do
             THIS_FILESIZE=$(stat -c%s "$BASE_DIR"/"$THIS_FILE".mkv)
             if [ "$THIS_FILESIZE" -lt "$REF_FILESIZE" ]
             then
-                echo Continuing with VMAF. 0"$(bc <<< "scale=5; $THIS_FILESIZE / $REF_FILESIZE")"X file size
+                echo Continuing with VMAF: 0"$(bc <<< "scale=5; $THIS_FILESIZE / $REF_FILESIZE")"X file size
                 VMAF=$(ffmpeg -i "$BASE_DIR"/"$THIS_FILE".mkv -i "$REF_FILE" -lavfi libvmaf="pool=perc5:log_fmt=json:model_path=model/vmaf_4k_v0.6.1.pkl" -f null - 2>&1 | grep "\[libvmaf" | grep "VMAF score" | grep -Poh "([0-9]{1,3}\.[0-9]{1,15})")
                 if flessthan "$PREV_VMAF" "$VMAF"
                 then
                     echo New best with vmaf="$VMAF" and "$(bc <<< "scale=5; $THIS_FILESIZE / $PREV_FILESIZE")"X file size
-                    PREV_FILE="$BASE_DIR"/"$THIS_FILE"
-                    PREV_FILESIZE=$THIS_FILESIZE
-                    PREV_VMAF=$VMAF
-                    BEST_PRESET=$PRESET
-                    BEST_TUNE=$TUNE
-                    BEST_CRF=$CRF
+                    updateBest
                     if [ "$PREV_FILE" != "" ]
                     then
                         rm "$PREV_FILE".*
-                    else
-                        break
                     fi
                 elif fequal "$PREV_VMAF" "$VMAF"
                 then
                     if [ "$THIS_FILESIZE" -lt "$PREV_FILESIZE" ]
                     then
                         echo Same quality result: vmaf="$VMAF" but smaller file size.  New best with vmaf="$VMAF" and "$(bc <<< "scale=5; $THIS_FILESIZE / $PREV_FILESIZE")"X file size
+                        updateBest
                     else
                         echo Same quality result: vmaf="$VMAF" but larger or same file size.  Retaining previous best preset="$BEST_PRESET", best tune="$BEST_TUNE", best crf="$BEST_CRF"
                     fi
