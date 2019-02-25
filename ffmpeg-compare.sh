@@ -82,7 +82,7 @@ do
                 VMAF=$(ffmpeg -i "$BASE_DIR"/"$THIS_FILE".mkv -i "$REF_FILE" -lavfi libvmaf="pool=perc5:log_fmt=json:model_path=model/vmaf_4k_v0.6.1.pkl" -f null - 2>&1 | grep "\[libvmaf" | grep "VMAF score" | grep -Poh "([0-9]{1,3}\.[0-9]{1,15})")
                 if flessthan "$PREV_VMAF" "$VMAF"
                 then
-                    echo New best with vmaf="$VMAF" and "$(bc <<< "scale=5; $THIS_FILESIZE / $PREV_FILESIZE")"X file size
+                    echo New best preset="$BEST_PRESET", tune="$BEST_TUNE", crf="$BEST_CRF" with vmaf="$VMAF" and "$(bc <<< "scale=5; $THIS_FILESIZE / $PREV_FILESIZE")"X file size
                     updateBest
                     if [ "$PREV_FILE" != "" ]
                     then
@@ -92,13 +92,13 @@ do
                 then
                     if [ "$THIS_FILESIZE" -lt "$PREV_FILESIZE" ]
                     then
-                        echo Same quality result: vmaf="$VMAF" but smaller file size.  New best with vmaf="$VMAF" and "$(bc <<< "scale=5; $THIS_FILESIZE / $PREV_FILESIZE")"X file size
+                        echo Same quality result: vmaf="$VMAF" but smaller file size.  New best preset="$BEST_PRESET", tune="$BEST_TUNE", crf="$BEST_CRF" with vmaf="$VMAF" and "$(bc <<< "scale=5; $THIS_FILESIZE / $PREV_FILESIZE")"X file size
                         updateBest
                     else
-                        echo Same quality result: vmaf="$VMAF" but larger or same file size.  Retaining previous best preset="$BEST_PRESET", best tune="$BEST_TUNE", best crf="$BEST_CRF"
+                        echo Same quality result: vmaf="$VMAF" but larger or same file size.  Retaining previous best preset="$BEST_PRESET", tune="$BEST_TUNE", crf="$BEST_CRF"
                     fi
                 else
-                    echo Lower quality result: vmaf="$VMAF" \< "$PREV_VMAF".  Retaining previous best preset="$BEST_PRESET", best tune="$BEST_TUNE", best crf="$BEST_CRF"
+                    echo Lower quality result: vmaf="$VMAF" \< "$PREV_VMAF".  Retaining previous best preset="$BEST_PRESET", tune="$BEST_TUNE", crf="$BEST_CRF"
                     rm "$BASE_DIR"/"$THIS_FILE".*
                     break
                 fi
