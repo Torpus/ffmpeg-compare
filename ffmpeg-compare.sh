@@ -100,7 +100,6 @@ do
                 VMAF=( $VMAF )
                 VMAF_SUM=$( IFS="+"; bc <<< "${VMAF[*]}" )
                 THIS_VMAF=$(bc <<< "scale=15; $VMAF_SUM / ${#VMAF[@]}")
-                echo "$THIS_VMAF"
                 if floatLessThan "$PREV_VMAF" "$THIS_VMAF"
                 then
                     updateBest
