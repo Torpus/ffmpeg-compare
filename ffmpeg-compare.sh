@@ -40,7 +40,7 @@ bytesToHuman () {
 }
 
 flessThanPercent() {
-    awk -v n1="$1" -v n2="$2" -v n3="$3" 'BEGIN {if (n1+0<((n2+0)*(n3+0)); exit 0; exit 1}'
+    awk -v n1="$1" -v n2="$2" -v n3="$3" 'BEGIN {if (n1+0<((n2+0)*(n3+0))) exit 0; exit 1}'
 }
 
 flessthan() {
