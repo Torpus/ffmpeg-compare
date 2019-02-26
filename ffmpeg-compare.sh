@@ -127,6 +127,6 @@ do
 done
 rm -rf "$BASE_DIR"
 echo best preset="$BEST_PRESET", best tune="$BEST_TUNE", best crf="$BEST_CRF"
-echo Use command:   ffmpeg -loglevel panic -i "$SOURCE_FILE" -c:v libx264 -crf "$BEST_CRF" -preset "$BEST_PRESET" -tune "$BEST_TUNE" -sn -an out/"$(basename "$SOURCE_FILE")"
+echo Use command:   ffmpeg -loglevel panic -i "$SOURCE_FILE" -c:v libx264 -crf "$BEST_CRF" -preset "$BEST_PRESET" -tune "$BEST_TUNE" -sn -an "$BASE_FILENAME".mp4
 
 exit 0
