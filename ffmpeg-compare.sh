@@ -1,10 +1,13 @@
 #!/usr/bin/env bash
 
 SOURCE_FILE=$1
+SIZE_MULTIPLIER=${2:-1}
+echo Input file: $SOURCE_FILE
+echo Target output size: $SIZE_MULTIPLIER
 PREV_FILE=""
 PREV_VMAF=0
 PRESETS=( ultrafast superfast veryfast faster fast medium slow slower veryslow )
-CRFS=( 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 )
+CRFS=( 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 )
 TUNES=( grain film animation )
 TEMP_FILE_LIST=temp_file_list.txt
 BASE_FILENAME=$(basename "$SOURCE_FILE" | cut -f 1 -d '.')
@@ -34,6 +37,11 @@ updateBest() {
 
 bytesToHuman () {
     numfmt --to=iec-i --format='%.5f' "$1"
+}
+
+flessThanPercent() {
+    echo $1 $2 $3
+    awk -v n1="$1" -v n2="$2" -v n3="$3" 'BEGIN {if (n1+0<(n2+0*n3+0)) exit 0; exit 1}'
 }
 
 flessthan() {
@@ -77,7 +85,7 @@ do
             THIS_FILE="$BASE_FILENAME"_"$PRESET"_crf"$CRF"_"$TUNE"
             ffmpeg -loglevel panic -i "$REF_FILE" -c:v libx264 -crf "$CRF" -preset "$PRESET" -tune "$TUNE" -sn -an "$BASE_DIR"/"$THIS_FILE".mkv
             THIS_FILESIZE=$(stat -c%s "$BASE_DIR"/"$THIS_FILE".mkv)
-            if [ "$THIS_FILESIZE" -lt "$REF_FILESIZE" ]
+            if flessThanPercent $THIS_FILESIZE $REF_FILESIZE $SIZE_MULTIPLIER
             then
                 echo Continuing with VMAF: 0"$(bc <<< "scale=5; $THIS_FILESIZE / $REF_FILESIZE")"X file size
                 VMAF=$(ffmpeg -i "$BASE_DIR"/"$THIS_FILE".mkv -i "$REF_FILE" -lavfi libvmaf="pool=perc5:log_fmt=json:model_path=model/vmaf_4k_v0.6.1.pkl" -f null - 2>&1 | grep "\[libvmaf" | grep "VMAF score" | grep -Poh "([0-9]{1,3}\.[0-9]{1,15})")
