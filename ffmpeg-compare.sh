@@ -70,7 +70,7 @@ do
 done
 
 
-REF_FILESIZE=$(du "$REF_DIR" | grep -Poh -m 1 "([0-9]{1,999})(?=\s)")
+REF_FILESIZE=$(du -s -B1 "$REF_DIR" | grep -Poh -m 1 "([0-9]{1,999})(?=\s)")
 PREV_FILESIZE="$REF_FILESIZE"
 echo Created sample set of videos with total filesize of "$(bytesToHuman "$REF_FILESIZE")"
 
@@ -89,7 +89,7 @@ do
             do
                 runEncode "$REF_FILE"
             done
-            THIS_FILESIZE=$(du "$ENC_DIR" | grep -Poh -m 1 "([0-9]{1,999})(?=\s)")
+            THIS_FILESIZE=$(du -s -B1 "$ENC_DIR" | grep -Poh -m 1 "([0-9]{1,999})(?=\s)")
             if floatLessThanPercent "$THIS_FILESIZE" "$REF_FILESIZE" "$SIZE_MULTIPLIER"
             then
                 echo Continuing with VMAF: 0"$(bc <<< "scale=5; $THIS_FILESIZE / $REF_FILESIZE")"X file size
@@ -127,6 +127,6 @@ do
 done
 rm -rf "$BASE_DIR"
 echo best preset="$BEST_PRESET", best tune="$BEST_TUNE", best crf="$BEST_CRF"
-echo Use command:   ffmpeg -loglevel panic -i "$SOURCE_FILE" -c:v libx264 -crf "$BEST_CRF" -preset "$BEST_PRESET" -tune "$BEST_TUNE" -sn -an "$BASE_FILENAME".mp4
+echo Use command:   ffmpeg -loglevel panic -i \""$SOURCE_FILE"\" -c:v libx264 -crf "$BEST_CRF" -preset "$BEST_PRESET" -tune "$BEST_TUNE" -sn -an "$BASE_FILENAME".mp4
 
 exit 0
