@@ -20,10 +20,10 @@ mkdir -p "$REF_DIR" "$ENC_DIR"
 
 grabSnippet() {
     START_OFFSET=${1:-0}
-    OFFSET_ARRAY=" $OFFSET_ARRAY $START_OFFSET "
-    if [ "$((START_OFFSET + 15))" -lt "$ORIGINAL_DURATION" ]
+    if [ "$((START_OFFSET + 10))" -lt "$ORIGINAL_DURATION" ]
     then
-        grabSnippet "$((START_OFFSET + 300))"
+        OFFSET_ARRAY=" $OFFSET_ARRAY $START_OFFSET "
+        grabSnippet "$((START_OFFSET + 600))"
     fi
 }
 updateBest() {
@@ -47,26 +47,36 @@ floatEquals() {
     awk -v n1="$1" -v n2="$2" 'BEGIN {if (n1+0==n2+0) exit 0; exit 1}'
 }
 runEncode() {
-    BASE_FILENAME="$1"
-    TEMP_NAME=${BASE_FILENAME//reference/encoded}
-    ffmpeg -loglevel panic -i "$BASE_FILENAME" -c:v libx264 -crf "$CRF" -preset "$PRESET" -tune "$TUNE" -sn -an "$TEMP_NAME"
+    FILENAME="$1"
+    TEMP_NAME=${FILENAME//reference/encoded}
+    ffmpeg -loglevel panic -i "$FILENAME" -c:v libx264 -crf "$CRF" -preset "$PRESET" -tune "$TUNE" -sn -an "$TEMP_NAME"
 }
 runVmaf() {
-    BASE_FILENAME="$1"
-    TEMP_NAME=${BASE_FILENAME//reference/encoded}
-    TEMP_VMAF=$(ffmpeg -i "$TEMP_NAME" -i "$BASE_FILENAME" -lavfi libvmaf="pool=perc5:log_fmt=json:model_path=model/vmaf_4k_v0.6.1.pkl" -f null - 2>&1 | grep "\[libvmaf" | grep "VMAF score" | grep -Poh "([0-9]{1,3}\.[0-9]{1,15})")
+    FILENAME="$1"
+    TEMP_NAME=${FILENAME//reference/encoded}
+    TEMP_VMAF=$(ffmpeg -i "$TEMP_NAME" -i "$FILENAME" -lavfi libvmaf="pool=perc5:log_fmt=json:model_path=model/vmaf_4k_v0.6.1.pkl" -f null - 2>&1 | grep "\[libvmaf" | grep "VMAF score" | grep -Poh "([0-9]{1,3}\.[0-9]{1,15})")
     VMAF=" $VMAF $TEMP_VMAF "
+}
+getCrop() {
+    CROP_VAL=$(ffmpeg -ss $((ORIGINAL_DURATION / 2)) -i "$SOURCE_FILE" -vframes 2 -vf cropdetect -f null - 2>&1 | grep -Poh "crop=([0-9]{1,5}:[0-9]{1,5}:[0-9]{1,5}:[0-9]{1,5})")
 }
 
 ORIGINAL_DURATION=$(ffprobe -v panic -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "$SOURCE_FILE" | grep -Poh -m 1 "([0-9]{1,9})" | head -1)
+
+getCrop
 
 grabSnippet
 OFFSET_ARRAY=( $OFFSET_ARRAY )
 
 for i in "${!OFFSET_ARRAY[@]}"
 do
-    REF_FILE="$BASE_FILENAME"_reference_"$i".mkv
-    ffmpeg -loglevel panic -ss "${OFFSET_ARRAY[$i]}" -i "$SOURCE_FILE" -t "00:00:15" -c:v copy -avoid_negative_ts 1 -sn -an "$REF_DIR"/"$REF_FILE"
+    if [ "$i" -lt 10 ]
+    then
+        REF_FILE="$BASE_FILENAME"_reference_"$i".mkv
+        ffmpeg -loglevel panic -ss "${OFFSET_ARRAY[$i]}" -i "$SOURCE_FILE" -t "00:00:10" -c:v copy -avoid_negative_ts 1 -sn -an "$REF_DIR"/"$REF_FILE"
+    else
+        break
+    fi
 done
 
 
@@ -126,6 +136,6 @@ do
 done
 rm -rf "$BASE_DIR"
 echo best preset="$BEST_PRESET", best tune="$BEST_TUNE", best crf="$BEST_CRF"
-echo Use command:   ffmpeg -loglevel panic -i \""$SOURCE_FILE"\" -c:v libx264 -crf "$BEST_CRF" -preset "$BEST_PRESET" -tune "$BEST_TUNE" -sn -an "$BASE_FILENAME".mp4
+echo Use command:   ffmpeg -loglevel panic -i \""$SOURCE_FILE"\" -c:v libx264 -crf "$BEST_CRF" -preset "$BEST_PRESET" -tune "$BEST_TUNE" -vf "$CROP_VAL" -c:a copy "$BASE_FILENAME".mp4
 
 exit 0
