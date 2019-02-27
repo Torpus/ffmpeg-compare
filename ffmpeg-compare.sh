@@ -6,11 +6,13 @@ echo Input file: "$SOURCE_FILE"
 echo Target output size: "$SIZE_MULTIPLIER"
 
 PRESETS=( ultrafast superfast veryfast faster fast medium slow slower veryslow )
-CRFS=( 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 )
+MIN_CRF=0
+MAX_CRF=51
 TUNES=( grain film animation )
 
 PREV_VMAF=0
-
+GREEN='\033[0;32m'
+NC='\033[0m'
 BASE_FILENAME=$(basename "$SOURCE_FILE" | cut -f 1 -d '.')
 BASE_FILENAME=${BASE_FILENAME// /_}
 BASE_DIR="$BASE_FILENAME"-tests
@@ -18,6 +20,16 @@ REF_DIR="$BASE_DIR"/reference
 ENC_DIR="$BASE_DIR"/encoded
 mkdir -p "$REF_DIR" "$ENC_DIR"
 
+buildCrfArray() {
+    i="$1"
+    MAX="$2"
+    CRFS=( )
+    while [ "$i" -le "$MAX" ]
+    do
+        CRFS+=( $i )
+        i=$((i + 1))
+    done
+}
 grabSnippet() {
     START_OFFSET=${1:-0}
     if [ "$((START_OFFSET + 10))" -lt "$ORIGINAL_DURATION" ]
@@ -32,7 +44,7 @@ updateBest() {
     BEST_PRESET="$PRESET"
     BEST_TUNE="$TUNE"
     BEST_CRF="$CRF"
-    echo New best preset="$BEST_PRESET", tune="$BEST_TUNE", crf="$BEST_CRF" with vmaf="$THIS_VMAF"
+    echo -e "$GREEN"New best preset="$BEST_PRESET", tune="$BEST_TUNE", crf="$BEST_CRF" with vmaf="$THIS_VMAF""$NC"
 }
 bytesToHuman () {
     numfmt --to=iec-i --format='%.5f' "$1"
@@ -92,6 +104,7 @@ for PRESET in "${PRESETS[@]}"
 do
     for TUNE in "${TUNES[@]}"
     do
+        buildCrfArray $MIN_CRF $MAX_CRF
         for CRF in "${CRFS[@]}"
         do
             echo Running preset="$PRESET", crf="$CRF", and tune="$TUNE"
@@ -132,6 +145,8 @@ do
             fi
             rm "$ENC_DIR"/*
         done
+        MIN_CRF=$((CRF / 2))
+        echo Adjusting minumum CRF to "$MIN_CRF"
     done
 done
 rm -rf "$BASE_DIR"
