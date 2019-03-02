@@ -2,8 +2,10 @@
 
 SOURCE_FILE=$1
 SIZE_MULTIPLIER=${2:-1}
+POOL=${3:-"perc5"}
 echo Input file: "$SOURCE_FILE"
 echo Target output size: "$SIZE_MULTIPLIER"
+echo Pool: "$POOL"
 PRESETS=( ultrafast superfast veryfast faster fast medium slow slower veryslow )
 MIN_CRF=0
 MAX_CRF=51
@@ -65,7 +67,7 @@ runEncode() {
 runVmaf() {
     FILENAME="$1"
     TEMP_NAME=${FILENAME//reference/encoded}
-    TEMP_VMAF=$(ffmpeg -i "$TEMP_NAME" -i "$FILENAME" -lavfi libvmaf="pool=perc5:log_fmt=json:model_path=model/vmaf_4k_v0.6.1.pkl" -f null - 2>&1 | grep "\[libvmaf" | grep "VMAF score" | grep -Poh "([0-9]{1,3}\.[0-9]{1,15})")
+    TEMP_VMAF=$(ffmpeg -i "$TEMP_NAME" -i "$FILENAME" -lavfi libvmaf="pool=$POOL:log_fmt=json:model_path=model/vmaf_4k_v0.6.1.pkl" -f null - 2>&1 | grep "\[libvmaf" | grep "VMAF score" | grep -Poh "([0-9]{1,3}\.[0-9]{1,15})")
     VMAF=" $VMAF $TEMP_VMAF "
 }
 getCrop() {
@@ -121,7 +123,7 @@ do
                 done
                 VMAF=( $VMAF )
                 VMAF_SUM=$( IFS="+"; bc <<< "${VMAF[*]}" )
-                THIS_VMAF=$(bc <<< "scale=15; $VMAF_SUM / ${#VMAF[@]}")
+                THIS_VMAF=$(bc <<< "scale=7; $VMAF_SUM / ${#VMAF[@]}")
                 if floatLessThan "$PREV_VMAF" "$THIS_VMAF"
                 then
                     updateBest
@@ -140,7 +142,7 @@ do
                     break
                 fi
             else
-                echo Too big: "$(bc <<< "scale=2; $THIS_FILESIZE / $REF_FILESIZE")"X file size
+                echo Too big: "$(bc <<< "scale=5; $THIS_FILESIZE / $REF_FILESIZE")"X file size
             fi
             rm "$ENC_DIR"/*
         done
