@@ -4,7 +4,6 @@ SOURCE_FILE=$1
 SIZE_MULTIPLIER=${2:-1}
 echo Input file: "$SOURCE_FILE"
 echo Target output size: "$SIZE_MULTIPLIER"
-
 PRESETS=( ultrafast superfast veryfast faster fast medium slow slower veryslow )
 MIN_CRF=0
 MAX_CRF=51
