@@ -11,3 +11,5 @@ install:
 
 script:
   - ls -la
+  - mkdir test; cd test; wget https://www.videvo.net/download_new.php?hash=3d32d9675d16540bf13f988a6d3f2228&test_new_server=1
+  - ls -la
