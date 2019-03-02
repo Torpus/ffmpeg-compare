@@ -2,15 +2,16 @@
 
 SOURCE_FILE=$1
 SIZE_MULTIPLIER=${2:-1}
-POOL=${3:-"perc5"}
+POOL=${3:-"harmonic_mean"}
+
 echo Input file: "$SOURCE_FILE"
 echo Target output size: "$SIZE_MULTIPLIER"
 echo Pool: "$POOL"
+
 PRESETS=( ultrafast superfast veryfast faster fast medium slow slower veryslow )
 MIN_CRF=0
 MAX_CRF=51
 TUNES=( grain film animation )
-
 PREV_VMAF=0
 GREEN='\033[0;32m'
 NC='\033[0m'
@@ -19,7 +20,6 @@ BASE_FILENAME=${BASE_FILENAME// /_}
 BASE_DIR="$BASE_FILENAME"-tests
 REF_DIR="$BASE_DIR"/reference
 ENC_DIR="$BASE_DIR"/encoded
-mkdir -p "$REF_DIR" "$ENC_DIR"
 
 buildCrfArray() {
     i="$1"
@@ -74,12 +74,12 @@ getCrop() {
     CROP_VAL=$(ffmpeg -ss $((ORIGINAL_DURATION / 2)) -i "$SOURCE_FILE" -vframes 2 -vf cropdetect -f null - 2>&1 | grep -Poh "crop=([0-9]{1,5}:[0-9]{1,5}:[0-9]{1,5}:[0-9]{1,5})")
 }
 
+mkdir -p "$REF_DIR" "$ENC_DIR"
+
 ORIGINAL_DURATION=$(ffprobe -v panic -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "$SOURCE_FILE" | grep -Poh -m 1 "([0-9]{1,9})" | head -1)
 
 getCrop
-
-grabSnippet
-OFFSET_ARRAY=( $OFFSET_ARRAY )
+grabSnippet && OFFSET_ARRAY=( $OFFSET_ARRAY )
 
 for i in "${!OFFSET_ARRAY[@]}"
 do
@@ -108,7 +108,7 @@ do
         buildCrfArray $MIN_CRF $MAX_CRF
         for CRF in "${CRFS[@]}"
         do
-            echo Running preset="$PRESET", crf="$CRF", and tune="$TUNE"
+            echo Running preset="$PRESET", tune="$TUNE", crf="$CRF"
             for REF_FILE in $REF_DIR/*
             do
                 runEncode "$REF_FILE"

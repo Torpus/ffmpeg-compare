@@ -20,9 +20,10 @@ ffmpeg-compare takes at least one but up to two arguments: the source file and a
 
 ## notes
 
-I have been testing using a video I found licensed for creative commons use found here [birds-at-feeder](https://www.videvo.net/video/birds-at-feeder/380/).  To test this I place the downloaded file in a `test` directory and then run
+I have been testing using a video I found licensed for creative commons use found here [lavender-cc-by-natureclip](https://www.videvo.net/video/lavender-cc-by-natureclip-/2157/).  To test this I run
 
-`./ffmpeg-compare.sh test/BirdsAndFeeder-H264\ 75.mov`
-`./ffmpeg-compare.sh test/BirdsAndFeeder-H264\ 75.mov .75`
-`./ffmpeg-compare.sh test/BirdsAndFeeder-H264\ 75.mov .5`
-`./ffmpeg-compare.sh test/BirdsAndFeeder-H264\ 75.mov .25`
+`./ffmpeg-compare.sh test/Lake_and_Clouds_CCBY_NatureClip.mp4`
+
+`./ffmpeg-compare.sh test/Lake_and_Clouds_CCBY_NatureClip.mp4 .25`
+
+`./ffmpeg-compare.sh test/Lake_and_Clouds_CCBY_NatureClip.mp4 .25 perc5`
