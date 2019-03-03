@@ -89,7 +89,7 @@ getCrop() {
             CROP_W="${array[0]}"
             CROP_W_OFFSET="${array[2]}"
         fi
-        if [ "${array[0]}" -gt $CROP_H ]
+        if [ "${array[1]}" -gt $CROP_H ]
         then
             CROP_H="${array[1]}"
             CROP_H_OFFSET="${array[3]}"
