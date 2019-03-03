@@ -9,9 +9,9 @@ echo Target output size: "$SIZE_MULTIPLIER"
 echo Pool: "$POOL"
 
 PRESETS=( ultrafast superfast veryfast faster fast medium slow slower veryslow )
-MIN_CRF=0
+MIN_CRF=6
 MAX_CRF=51
-TUNES=( grain film animation )
+# TUNES=( grain film animation )
 PREV_VMAF=0
 GREEN='\033[0;32m'
 NC='\033[0m'
@@ -66,7 +66,7 @@ floatEquals() {
 runEncode() {
     FILENAME="$1"
     TEMP_NAME=${FILENAME//reference/encoded}
-    ffmpeg -loglevel panic -i "$FILENAME" -c:v libx264 -crf "$CRF" -preset "$PRESET" -tune "$TUNE" -sn -an "$TEMP_NAME"
+    ffmpeg -loglevel quiet -i "$FILENAME" -c:v libx265 -crf "$CRF" -preset "$PRESET" -sn -an "$TEMP_NAME" > /dev/null 2>&1
 }
 runVmaf() {
     FILENAME="$1"
@@ -106,7 +106,7 @@ do
     if [ "$i" -lt 10 ]
     then
         REF_FILE="$BASE_FILENAME"_reference_"$i".mkv
-        ffmpeg -loglevel panic -ss "${OFFSET_ARRAY[$i]}" -i "$SOURCE_FILE" -t "00:00:10" -c:v copy -avoid_negative_ts 1 -sn -an "$REF_DIR"/"$REF_FILE"
+        ffmpeg -loglevel quiet -ss "${OFFSET_ARRAY[$i]}" -i "$SOURCE_FILE" -t "00:00:10" -c:v copy -avoid_negative_ts 1 -sn -an "$REF_DIR"/"$REF_FILE"
     else
         break
     fi
@@ -130,8 +130,8 @@ BEST_CRF=""
 
 for PRESET in "${PRESETS[@]}"
 do
-    for TUNE in "${TUNES[@]}"
-    do
+    # for TUNE in "${TUNES[@]}"
+    # do
         buildCrfArray $MIN_CRF $MAX_CRF
         for CRF in "${CRFS[@]}"
         do
@@ -176,10 +176,10 @@ do
         MIN_CRF=$(bc <<< "scale=2; ($CRF*0.75)")
         MIN_CRF=$(bc <<< "($MIN_CRF+0.5)/1")
         echo Adjusting minumum CRF to "$MIN_CRF"
-    done
+    # done
 done
 rm -rf "$BASE_DIR"
 echo best preset="$BEST_PRESET", best tune="$BEST_TUNE", best crf="$BEST_CRF"
-echo Use command:   ffmpeg -loglevel panic -i \""$SOURCE_FILE"\" -c:v libx264 -crf "$BEST_CRF" -preset "$BEST_PRESET" -tune "$BEST_TUNE" -vf crop="$CROP_W":"$CROP_H":"$CROP_W_OFFSET":"$CROP_H_OFFSET" -c:a copy "$BASE_FILENAME".mp4
-
+echo Using command:   ffmpeg -loglevel error -i \""$SOURCE_FILE"\" -c:v libx265 -crf "$BEST_CRF" -preset "$BEST_PRESET" -vf crop="$CROP_W":"$CROP_H":"$CROP_W_OFFSET":"$CROP_H_OFFSET" -c:a copy "$BASE_FILENAME".mp4
+ffmpeg -loglevel error -i \""$SOURCE_FILE"\" -c:v libx265 -crf "$BEST_CRF" -preset "$BEST_PRESET" -vf crop="$CROP_W":"$CROP_H":"$CROP_W_OFFSET":"$CROP_H_OFFSET" -c:a copy ~/Desktop/"$BASE_FILENAME".mp4
 exit 0
