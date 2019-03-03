@@ -25,7 +25,7 @@ optional pool values: harmonic_mean(default), mean, median, min, perc5, perc10 a
 
 ## notes
 
-I have been testing using a video I found licensed for creative commons use found here [lavender-cc-by-natureclip](https://www.videvo.net/video/lavender-cc-by-natureclip-/2157/).  To test this I run
+I have been testing using a video I found licensed for creative commons use found here [Lake_and_Clouds_CCBY_NatureClip.mp4](https://www.videvo.net/download_new.php?hash=fd238e00faab809400c90241887dc093&test_new_server=1).  To test this I run
 
 `./ffmpeg-compare.sh test/Lake_and_Clouds_CCBY_NatureClip.mp4`
 
