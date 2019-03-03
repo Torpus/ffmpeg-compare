@@ -81,6 +81,7 @@ getCrop() {
         TEMP_CROP=$(ffmpeg -ss "$i" -i "$SOURCE_FILE" -t 1 -vf cropdetect -f null - 2>&1 | grep -Poh "([0-9]{1,5}:[0-9]{1,5}:[0-9]{1,5}:[0-9]{1,5})")
         echo "$TEMP_CROP" >> "$BASE_DIR"/crop_tests/crop.txt
     done
+    sed -i '/^$/d' "$BASE_DIR"/crop_tests/crop.txt
     while IFS='' read -r line || [[ -n "$line" ]]; do
         IFS=':' read -r -a array <<< "$line"
         if [ "${array[0]}" -gt $CROP_W ]
@@ -94,7 +95,6 @@ getCrop() {
             CROP_H_OFFSET="${array[3]}"
         fi
     done < "$BASE_DIR"/crop_tests/crop.txt
-    rm -rf "$BASE_DIR"/crop_tests
 }
 
 mkdir -p "$REF_DIR" "$ENC_DIR"
