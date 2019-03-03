@@ -11,7 +11,6 @@ echo Pool: "$POOL"
 PRESETS=( ultrafast superfast veryfast faster fast medium slow slower veryslow )
 MIN_CRF=6
 MAX_CRF=51
-# TUNES=( grain film animation )
 PREV_VMAF=0
 GREEN='\033[0;32m'
 NC='\033[0m'
@@ -127,53 +126,50 @@ BEST_CRF=""
 
 for PRESET in "${PRESETS[@]}"
 do
-    # for TUNE in "${TUNES[@]}"
-    # do
-        buildCrfArray $MIN_CRF $MAX_CRF
-        for CRF in "${CRFS[@]}"
+    buildCrfArray $MIN_CRF $MAX_CRF
+    for CRF in "${CRFS[@]}"
+    do
+        echo Running preset="$PRESET", tune="$TUNE", crf="$CRF"
+        for REF_FILE in $REF_DIR/*
         do
-            echo Running preset="$PRESET", tune="$TUNE", crf="$CRF"
+            runEncode "$REF_FILE"
+        done
+        THIS_FILESIZE=$(du -s -B1 "$ENC_DIR" | grep -Poh -m 1 "([0-9]{1,999})(?=\s)")
+        if floatLessThanPercent "$THIS_FILESIZE" "$REF_FILESIZE" "$SIZE_MULTIPLIER"
+        then
+            echo Continuing with VMAF: 0"$(bc <<< "scale=5; $THIS_FILESIZE / $REF_FILESIZE")"X file size
             for REF_FILE in $REF_DIR/*
             do
-                runEncode "$REF_FILE"
+                runVmaf "$REF_FILE"
             done
-            THIS_FILESIZE=$(du -s -B1 "$ENC_DIR" | grep -Poh -m 1 "([0-9]{1,999})(?=\s)")
-            if floatLessThanPercent "$THIS_FILESIZE" "$REF_FILESIZE" "$SIZE_MULTIPLIER"
+            VMAF=( $VMAF )
+            VMAF_SUM=$( IFS="+"; bc <<< "${VMAF[*]}" )
+            THIS_VMAF=$(bc <<< "scale=7; $VMAF_SUM / ${#VMAF[@]}")
+            if floatLessThan "$PREV_VMAF" "$THIS_VMAF"
             then
-                echo Continuing with VMAF: 0"$(bc <<< "scale=5; $THIS_FILESIZE / $REF_FILESIZE")"X file size
-                for REF_FILE in $REF_DIR/*
-                do
-                    runVmaf "$REF_FILE"
-                done
-                VMAF=( $VMAF )
-                VMAF_SUM=$( IFS="+"; bc <<< "${VMAF[*]}" )
-                THIS_VMAF=$(bc <<< "scale=7; $VMAF_SUM / ${#VMAF[@]}")
-                if floatLessThan "$PREV_VMAF" "$THIS_VMAF"
+                updateBest
+            elif floatEquals "$PREV_VMAF" "$THIS_VMAF"
+            then
+                if [ "$THIS_FILESIZE" -lt "$PREV_FILESIZE" ]
                 then
+                    echo Same quality result: vmaf="$THIS_VMAF" but smaller file size.
                     updateBest
-                elif floatEquals "$PREV_VMAF" "$THIS_VMAF"
-                then
-                    if [ "$THIS_FILESIZE" -lt "$PREV_FILESIZE" ]
-                    then
-                        echo Same quality result: vmaf="$THIS_VMAF" but smaller file size.
-                        updateBest
-                    else
-                        echo Same quality result: vmaf="$THIS_VMAF" but larger or same file size.  Retaining previous best preset="$BEST_PRESET", tune="$BEST_TUNE", crf="$BEST_CRF"
-                    fi
                 else
-                    echo Lower quality result: vmaf="$THIS_VMAF" \< "$PREV_VMAF".  Retaining previous best preset="$BEST_PRESET", tune="$BEST_TUNE", crf="$BEST_CRF"
-                    rm "$ENC_DIR"/*
-                    break
+                    echo Same quality result: vmaf="$THIS_VMAF" but larger or same file size.  Retaining previous best preset="$BEST_PRESET", tune="$BEST_TUNE", crf="$BEST_CRF"
                 fi
             else
-                echo Too big: "$(bc <<< "scale=5; $THIS_FILESIZE / $REF_FILESIZE")"X file size
+                echo Lower quality result: vmaf="$THIS_VMAF" \< "$PREV_VMAF".  Retaining previous best preset="$BEST_PRESET", tune="$BEST_TUNE", crf="$BEST_CRF"
+                rm "$ENC_DIR"/*
+                break
             fi
-            rm "$ENC_DIR"/*
-        done
-        MIN_CRF=$(bc <<< "scale=2; ($CRF*0.75)")
-        MIN_CRF=$(bc <<< "($MIN_CRF+0.5)/1")
-        echo Adjusting minumum CRF to "$MIN_CRF"
-    # done
+        else
+            echo Too big: "$(bc <<< "scale=5; $THIS_FILESIZE / $REF_FILESIZE")"X file size
+        fi
+        rm "$ENC_DIR"/*
+    done
+    MIN_CRF=$(bc <<< "scale=2; ($CRF*0.75)")
+    MIN_CRF=$(bc <<< "($MIN_CRF+0.5)/1")
+    echo Adjusting minumum CRF to "$MIN_CRF"
 done
 rm -rf "$BASE_DIR"
 echo best preset="$BEST_PRESET", best tune="$BEST_TUNE", best crf="$BEST_CRF"
