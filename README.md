@@ -1,11 +1,13 @@
 # ffmpeg-compare
 
-ffmpeg-compare takes at least one but up to two arguments: the source file and an optional target file size multiplier.  It then creates a number of samples by slicing out 15 seconds from every 5 minutes of the video to create a set of files ~5% of the original size.  These reference videos are then run through a number of encoding processes using the list of settings below.  Each is compared against the reference using netflix's vmaf comparison and the 'vmaf_4k_v0.6.1.pkl' model.  I am targeting overall quality over reduced filesize so the resulting file may not save a ton of space compared to the source if you don't supply a target file size multiplier (in the form of a decimal .5 means you want a resulting file size no greater than 50% of the original).
+ffmpeg-compare takes at least one but up to three arguments: the source file, an optional target file size multiplier, and an optional pool setting for vmaf.  It then creates up to 10 samples by slicing out 10 seconds from every 10 minutes of the video to create a set of reference videos from the original.  These reference videos are then run through a number of encoding processes using the list of settings below.  Each set of encoded files are compared against the references using netflix's vmaf comparison and the 'vmaf_4k_v0.6.1.pkl' model.  I am targeting overall quality over reduced filesize so the resulting file may not save a ton of space compared to the source if you don't supply a target file size multiplier (in the form of a decimal, .5 meaning you want a resulting file size no greater than 50% of the original).
 > it takes a while, be patient
 
 - preset: ultrafast, superfast, veryfast, faster, fast, medium, slow, slower, veryslow
 - crf: 0-51
 - tune: grain, film, animation
+
+optional pool values: harmonic_mean(default), mean, median, min, perc5, perc10 and perc20
 
 ## prereqs
 
@@ -16,7 +18,10 @@ ffmpeg-compare takes at least one but up to two arguments: the source file and a
 ## usage
 
 `./ffmpeg-compare.sh <input_file>`
+
 `./ffmpeg-compare.sh <input_file> <target_multiplier>`
+
+`./ffmpeg-compare.sh <input_file> <target_multiplier> <pool_name>`
 
 ## notes
 
