@@ -75,24 +75,26 @@ runVmaf() {
     VMAF=" $VMAF $TEMP_VMAF "
 }
 getCrop() {
-    CROP=$(ffmpeg -ss $((ORIGINAL_DURATION / 2)) -i "$SOURCE_FILE" -vframes 2 -vf cropdetect -f null - 2>&1 | grep -Poh "([0-9]{1,5}:[0-9]{1,5}:[0-9]{1,5}:[0-9]{1,5})")
-    IFS=':' read -r -a array <<< "$CROP"
-    if [ "${array[0]}" -gt $CROP_W ]
-    then
-        CROP_W="${array[0]}"
-    fi
-    if [ "${array[0]}" -gt $CROP_H ]
-    then
-        CROP_H="${array[1]}"
-    fi
-    if [ "${array[0]}" -gt $CROP_W_OFFSET ]
-    then
-        CROP_W_OFFSET="${array[2]}"
-    fi
-    if [ "${array[0]}" -gt $CROP_H_OFFSET ]
-    then
-        CROP_H_OFFSET="${array[3]}"
-    fi
+    mkdir "$BASE_DIR"/crop_tests
+    for i in $(seq 0 300 "$(ffprobe -show_format "$SOURCE_FILE" 2>/dev/null | grep duration | sed 's,duration=\(.*\)\..*,\1,g')")
+    do
+        TEMP_CROP=$(ffmpeg -ss "$i" -i "$SOURCE_FILE" -t 1 -vf cropdetect -f null - 2>&1 | grep -Poh "([0-9]{1,5}:[0-9]{1,5}:[0-9]{1,5}:[0-9]{1,5})")
+        echo "$TEMP_CROP" >> "$BASE_DIR"/crop_tests/crop.txt
+    done
+    while IFS='' read -r line || [[ -n "$line" ]]; do
+        IFS=':' read -r -a array <<< "$line"
+        if [ "${array[0]}" -gt $CROP_W ]
+        then
+            CROP_W="${array[0]}"
+            CROP_W_OFFSET="${array[2]}"
+        fi
+        if [ "${array[0]}" -gt $CROP_H ]
+        then
+            CROP_H="${array[1]}"
+            CROP_H_OFFSET="${array[3]}"
+        fi
+    done < "$BASE_DIR"/crop_tests/crop.txt
+    rm -rf "$BASE_DIR"/crop_tests
 }
 
 mkdir -p "$REF_DIR" "$ENC_DIR"
@@ -112,12 +114,7 @@ do
     fi
 done
 echo "Calculating crop..."
-for REF_FILE in $REF_DIR/*
-do
-    getCrop "$REF_FILE"
-done
-WIDTH_ARRAY=( $WIDTH_ARRAY ) && HEIGHT_ARRAY=( $HEIGHT_ARRAY ) && W_OFFSET_ARRAY=( $W_OFFSET_ARRAY ) && H_OFFSET_ARRAY=( $H_OFFSET_ARRAY )
-
+getCrop "$REF_FILE"
 echo "Finalized Crop: Width=$CROP_W, Height=$CROP_H, Width Offset=$CROP_W_OFFSET, Height Offset=$CROP_H_OFFSET"
 
 REF_FILESIZE=$(du -s -B1 "$REF_DIR" | grep -Poh -m 1 "([0-9]{1,999})(?=\s)")
