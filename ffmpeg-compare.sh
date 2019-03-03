@@ -20,6 +20,10 @@ BASE_FILENAME=${BASE_FILENAME// /_}
 BASE_DIR="$BASE_FILENAME"-tests
 REF_DIR="$BASE_DIR"/reference
 ENC_DIR="$BASE_DIR"/encoded
+CROP_W=0
+CROP_H=0
+CROP_W_OFFSET=0
+CROP_H_OFFSET=0
 
 buildCrfArray() {
     i="$1"
@@ -71,14 +75,30 @@ runVmaf() {
     VMAF=" $VMAF $TEMP_VMAF "
 }
 getCrop() {
-    CROP_VAL=$(ffmpeg -ss $((ORIGINAL_DURATION / 2)) -i "$SOURCE_FILE" -vframes 2 -vf cropdetect -f null - 2>&1 | grep -Poh "crop=([0-9]{1,5}:[0-9]{1,5}:[0-9]{1,5}:[0-9]{1,5})")
+    CROP=$(ffmpeg -ss $((ORIGINAL_DURATION / 2)) -i "$SOURCE_FILE" -vframes 2 -vf cropdetect -f null - 2>&1 | grep -Poh "([0-9]{1,5}:[0-9]{1,5}:[0-9]{1,5}:[0-9]{1,5})")
+    IFS=':' read -r -a array <<< "$CROP"
+    if [ "${array[0]}" -gt $CROP_W ]
+    then
+        CROP_W="${array[0]}"
+    fi
+    if [ "${array[0]}" -gt $CROP_H ]
+    then
+        CROP_H="${array[1]}"
+    fi
+    if [ "${array[0]}" -gt $CROP_W_OFFSET ]
+    then
+        CROP_W_OFFSET="${array[2]}"
+    fi
+    if [ "${array[0]}" -gt $CROP_H_OFFSET ]
+    then
+        CROP_H_OFFSET="${array[3]}"
+    fi
 }
 
 mkdir -p "$REF_DIR" "$ENC_DIR"
 
 ORIGINAL_DURATION=$(ffprobe -v panic -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "$SOURCE_FILE" | grep -Poh -m 1 "([0-9]{1,9})" | head -1)
 
-getCrop
 grabSnippet && OFFSET_ARRAY=( $OFFSET_ARRAY )
 
 for i in "${!OFFSET_ARRAY[@]}"
@@ -91,7 +111,14 @@ do
         break
     fi
 done
+echo "Calculating crop..."
+for REF_FILE in $REF_DIR/*
+do
+    getCrop "$REF_FILE"
+done
+WIDTH_ARRAY=( $WIDTH_ARRAY ) && HEIGHT_ARRAY=( $HEIGHT_ARRAY ) && W_OFFSET_ARRAY=( $W_OFFSET_ARRAY ) && H_OFFSET_ARRAY=( $H_OFFSET_ARRAY )
 
+echo "Finalized Crop: Width=$CROP_W, Height=$CROP_H, Width Offset=$CROP_W_OFFSET, Height Offset=$CROP_H_OFFSET"
 
 REF_FILESIZE=$(du -s -B1 "$REF_DIR" | grep -Poh -m 1 "([0-9]{1,999})(?=\s)")
 PREV_FILESIZE="$REF_FILESIZE"
@@ -146,12 +173,13 @@ do
             fi
             rm "$ENC_DIR"/*
         done
-        MIN_CRF=$((CRF / 2))
+        MIN_CRF=$(bc <<< "scale=2; ($CRF*0.75)")
+        MIN_CRF=$(bc <<< "($MIN_CRF+0.5)/1")
         echo Adjusting minumum CRF to "$MIN_CRF"
     done
 done
 rm -rf "$BASE_DIR"
 echo best preset="$BEST_PRESET", best tune="$BEST_TUNE", best crf="$BEST_CRF"
-echo Use command:   ffmpeg -loglevel panic -i \""$SOURCE_FILE"\" -c:v libx264 -crf "$BEST_CRF" -preset "$BEST_PRESET" -tune "$BEST_TUNE" -vf "$CROP_VAL" -c:a copy "$BASE_FILENAME".mp4
+echo Use command:   ffmpeg -loglevel panic -i \""$SOURCE_FILE"\" -c:v libx264 -crf "$BEST_CRF" -preset "$BEST_PRESET" -tune "$BEST_TUNE" -vf crop="$CROP_W":"$CROP_H":"$CROP_W_OFFSET":"$CROP_H_OFFSET" -c:a copy "$BASE_FILENAME".mp4
 
 exit 0
