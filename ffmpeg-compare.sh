@@ -9,7 +9,7 @@ echo Target output size: "$SIZE_MULTIPLIER"
 echo Pool: "$POOL"
 
 PRESETS=( ultrafast superfast veryfast faster fast medium slow slower veryslow )
-MIN_CRF=0
+MIN_CRF=18
 MAX_CRF=51
 TUNES=( grain film animation )
 PREV_VMAF=0
@@ -75,8 +75,13 @@ runVmaf() {
     VMAF=" $VMAF $TEMP_VMAF "
 }
 getCrop() {
-    CROP=$(ffmpeg -ss $((ORIGINAL_DURATION / 2)) -i "$SOURCE_FILE" -vframes 2 -vf cropdetect -f null - 2>&1 | grep -Poh "([0-9]{1,5}:[0-9]{1,5}:[0-9]{1,5}:[0-9]{1,5})")
-    IFS=':' read -r -a array <<< "$CROP"
+    for i in $(seq 0 60 "$(ffprobe -show_format "$SOURCE_FILE" 2>/dev/null | grep duration | sed 's,duration=\(.*\)\..*,\1,g')")
+    do
+        CROP=" $CROP $(ffmpeg -ss "$i" -i "$SOURCE_FILE" -t 1 -vf cropdetect -f null - 2>&1 | grep -Poh "([0-9]{1,5}:[0-9]{1,5}:[0-9]{1,5}:[0-9]{1,5})")"
+    done
+    CROP=( $CROP )
+    IFS=$'\n' read -r -a CROP_ARRAY <<< "$CROP"
+    IFS=':' read -r -a array <<< "$CROP_ARRAY"
     if [ "${array[0]}" -gt $CROP_W ]
     then
         CROP_W="${array[0]}"
@@ -180,6 +185,6 @@ do
 done
 rm -rf "$BASE_DIR"
 echo best preset="$BEST_PRESET", best tune="$BEST_TUNE", best crf="$BEST_CRF"
-echo Use command:   ffmpeg -loglevel panic -i \""$SOURCE_FILE"\" -c:v libx264 -crf "$BEST_CRF" -preset "$BEST_PRESET" -tune "$BEST_TUNE" -vf crop="$CROP_W":"$CROP_H":"$CROP_W_OFFSET":"$CROP_H_OFFSET" -c:a copy "$BASE_FILENAME".mp4
-
+echo Using command:   ffmpeg -loglevel panic -i \""$SOURCE_FILE"\" -c:v libx264 -crf "$BEST_CRF" -preset "$BEST_PRESET" -tune "$BEST_TUNE" -vf crop="$CROP_W":"$CROP_H":"$CROP_W_OFFSET":"$CROP_H_OFFSET" -c:a copy ~/Desktop/"$BASE_FILENAME".mp4
+ffmpeg -loglevel panic -i \""$SOURCE_FILE"\" -c:v libx264 -crf "$BEST_CRF" -preset "$BEST_PRESET" -tune "$BEST_TUNE" -vf crop="$CROP_W":"$CROP_H":"$CROP_W_OFFSET":"$CROP_H_OFFSET" -c:a copy ~/Desktop/"$BASE_FILENAME".mp4
 exit 0
