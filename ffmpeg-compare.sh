@@ -181,6 +181,6 @@ rm -rf "$BASE_DIR"
 echo best preset="$BEST_PRESET", best tune="$BEST_TUNE", best crf="$BEST_CRF"
 echo Using command:   ffmpeg -i \""$SOURCE_FILE"\" -c:v libx264 -crf "$BEST_CRF" -preset "$BEST_PRESET" -tune "$BEST_TUNE" -vf crop="$CROP_W":"$CROP_H":"$CROP_W_OFFSET":"$CROP_H_OFFSET" -c:a copy ~/Desktop/"$BASE_FILENAME".mp4
 
-ffmpeg -i \""$SOURCE_FILE"\" -c:v libx264 -crf "$BEST_CRF" -preset "$BEST_PRESET" -tune "$BEST_TUNE" -vf crop="$CROP_W":"$CROP_H":"$CROP_W_OFFSET":"$CROP_H_OFFSET" -c:a copy ~/Desktop/"$BASE_FILENAME".mp4
+ffmpeg -i "$SOURCE_FILE" -c:v libx264 -crf "$BEST_CRF" -preset "$BEST_PRESET" -tune "$BEST_TUNE" -vf crop="$CROP_W":"$CROP_H":"$CROP_W_OFFSET":"$CROP_H_OFFSET" -c:a copy ~/Desktop/"$BASE_FILENAME".mp4
 
 exit 0
