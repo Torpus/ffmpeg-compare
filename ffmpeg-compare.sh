@@ -20,6 +20,12 @@ BASE_FILENAME=${BASE_FILENAME// /_}
 BASE_DIR="$BASE_FILENAME"-tests
 REF_DIR="$BASE_DIR"/reference
 ENC_DIR="$BASE_DIR"/encoded
+CROP_W=0
+CROP_H=0
+CROP_W_OFFSET=0
+CROP_H_OFFSET=0
+NUM_SNIPPETS=15
+SNIPPET_LENGTH=3
 
 buildCrfArray() {
     i="$1"
@@ -33,10 +39,10 @@ buildCrfArray() {
 }
 grabSnippet() {
     START_OFFSET=${1:-0}
-    if [ "$((START_OFFSET + 10))" -lt "$ORIGINAL_DURATION" ]
+    if [ "$((START_OFFSET + SNIPPET_LENGTH))" -lt "$ORIGINAL_DURATION" ]
     then
         OFFSET_ARRAY=" $OFFSET_ARRAY $START_OFFSET "
-        grabSnippet "$((START_OFFSET + 600))"
+        grabSnippet "$((START_OFFSET + SNIPPET_GAP))"
     fi
 }
 updateBest() {
@@ -71,27 +77,47 @@ runVmaf() {
     VMAF=" $VMAF $TEMP_VMAF "
 }
 getCrop() {
-    CROP_VAL=$(ffmpeg -ss $((ORIGINAL_DURATION / 2)) -i "$SOURCE_FILE" -vframes 2 -vf cropdetect -f null - 2>&1 | grep -Poh "crop=([0-9]{1,5}:[0-9]{1,5}:[0-9]{1,5}:[0-9]{1,5})")
+    mkdir "$BASE_DIR"/crop_tests
+    for i in $(seq 0 300 "$(ffprobe -show_format "$SOURCE_FILE" 2>/dev/null | grep duration | sed 's,duration=\(.*\)\..*,\1,g')")
+    do
+        TEMP_CROP=$(ffmpeg -ss "$i" -i "$SOURCE_FILE" -t 1 -vf cropdetect -f null - 2>&1 | grep -Poh "([0-9]{1,5}:[0-9]{1,5}:[0-9]{1,5}:[0-9]{1,5})")
+        echo "$TEMP_CROP" >> "$BASE_DIR"/crop_tests/crop.txt
+    done
+    sed -i '/^$/d' "$BASE_DIR"/crop_tests/crop.txt
+    while IFS='' read -r line || [[ -n "$line" ]]; do
+        IFS=':' read -r -a array <<< "$line"
+        if [ "${array[0]}" -gt $CROP_W ]
+        then
+            CROP_W="${array[0]}"
+            CROP_W_OFFSET="${array[2]}"
+        fi
+        if [ "${array[1]}" -gt $CROP_H ]
+        then
+            CROP_H="${array[1]}"
+            CROP_H_OFFSET="${array[3]}"
+        fi
+    done < "$BASE_DIR"/crop_tests/crop.txt
 }
 
 mkdir -p "$REF_DIR" "$ENC_DIR"
 
 ORIGINAL_DURATION=$(ffprobe -v panic -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "$SOURCE_FILE" | grep -Poh -m 1 "([0-9]{1,9})" | head -1)
-
-getCrop
+SNIPPET_GAP=$(( ORIGINAL_DURATION / NUM_SNIPPETS ))
 grabSnippet && OFFSET_ARRAY=( $OFFSET_ARRAY )
-
+echo "Creating samples..."
 for i in "${!OFFSET_ARRAY[@]}"
 do
-    if [ "$i" -lt 10 ]
+    if [ "$i" -lt "$NUM_SNIPPETS" ]
     then
         REF_FILE="$BASE_FILENAME"_reference_"$i".mkv
-        ffmpeg -loglevel panic -ss "${OFFSET_ARRAY[$i]}" -i "$SOURCE_FILE" -t "00:00:10" -c:v copy -avoid_negative_ts 1 -sn -an "$REF_DIR"/"$REF_FILE"
+        ffmpeg -loglevel panic -ss "${OFFSET_ARRAY[$i]}" -i "$SOURCE_FILE" -t "$SNIPPET_LENGTH" -c:v copy -avoid_negative_ts 1 -sn -an "$REF_DIR"/"$REF_FILE"
     else
         break
     fi
 done
-
+echo "Calculating crop..."
+getCrop "$REF_FILE"
+echo "Finalized Crop: Width=$CROP_W, Height=$CROP_H, Width Offset=$CROP_W_OFFSET, Height Offset=$CROP_H_OFFSET"
 
 REF_FILESIZE=$(du -s -B1 "$REF_DIR" | grep -Poh -m 1 "([0-9]{1,999})(?=\s)")
 PREV_FILESIZE="$REF_FILESIZE"
@@ -146,12 +172,15 @@ do
             fi
             rm "$ENC_DIR"/*
         done
-        MIN_CRF=$((CRF / 2))
+        MIN_CRF=$(bc <<< "scale=2; ($CRF*0.75)")
+        MIN_CRF=$(bc <<< "($MIN_CRF+0.5)/1")
         echo Adjusting minumum CRF to "$MIN_CRF"
     done
 done
 rm -rf "$BASE_DIR"
 echo best preset="$BEST_PRESET", best tune="$BEST_TUNE", best crf="$BEST_CRF"
-echo Use command:   ffmpeg -loglevel panic -i \""$SOURCE_FILE"\" -c:v libx264 -crf "$BEST_CRF" -preset "$BEST_PRESET" -tune "$BEST_TUNE" -vf "$CROP_VAL" -c:a copy "$BASE_FILENAME".mp4
+echo Using command:   ffmpeg -i \""$SOURCE_FILE"\" -c:v libx264 -crf "$BEST_CRF" -preset "$BEST_PRESET" -tune "$BEST_TUNE" -vf crop="$CROP_W":"$CROP_H":"$CROP_W_OFFSET":"$CROP_H_OFFSET" -c:a copy ~/Desktop/"$BASE_FILENAME".mp4
+
+ffmpeg -i "$SOURCE_FILE" -c:v libx264 -crf "$BEST_CRF" -preset "$BEST_PRESET" -tune "$BEST_TUNE" -vf crop="$CROP_W":"$CROP_H":"$CROP_W_OFFSET":"$CROP_H_OFFSET" -c:a copy ~/Desktop/"$BASE_FILENAME".mp4
 
 exit 0
