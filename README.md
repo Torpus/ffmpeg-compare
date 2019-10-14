@@ -32,3 +32,5 @@ I have been testing using a video I found licensed for creative commons use foun
 `./ffmpeg-compare.sh test/Lake_and_Clouds_CCBY_NatureClip.mp4 .25`
 
 `./ffmpeg-compare.sh test/Lake_and_Clouds_CCBY_NatureClip.mp4 .25 perc5`
+
+`./ffmpeg-compare.sh test/Lake_and_Clouds_CCBY_NatureClip.mp4 v`

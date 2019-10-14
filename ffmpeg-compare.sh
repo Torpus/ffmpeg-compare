@@ -2,10 +2,19 @@
 
 SOURCE_FILE=$1
 SIZE_MULTIPLIER=${2:-1}
+if [ "v" == "$(echo $SIZE_MULTIPLIER | awk '{print tolower($0)}')" ]
+then
+    VMAF_MODE=1
+fi
 POOL=${3:-"harmonic_mean"}
 
 echo Input file: "$SOURCE_FILE"
-echo Target output size: "$SIZE_MULTIPLIER"
+if [ $VMAF_MODE -gt 0 ]
+then
+    echo Target output size: "VARIABLE"
+else
+    echo Target output size: "$SIZE_MULTIPLIER"
+fi
 echo Pool: "$POOL"
 
 PRESETS=( ultrafast superfast veryfast faster fast medium slow slower veryslow )
@@ -27,6 +36,8 @@ CROP_H_OFFSET=0
 NUM_SNIPPETS=15
 SNIPPET_LENGTH=3
 
+rm -rf $BASE_DIR
+
 buildCrfArray() {
     i="$1"
     MAX="$2"
@@ -35,6 +46,16 @@ buildCrfArray() {
     do
         CRFS+=( $i )
         i=$((i + 1))
+    done
+}
+buildVmafModeCrfArray() {
+    i="$1"
+    MIN="$2"
+    CRFS=( )
+    while [ "$i" -gt "$MIN" ]
+    do
+        CRFS+=( $i )
+        i=$((i - 1))
     done
 }
 grabSnippet() {
@@ -131,7 +152,12 @@ for PRESET in "${PRESETS[@]}"
 do
     for TUNE in "${TUNES[@]}"
     do
-        buildCrfArray $MIN_CRF $MAX_CRF
+        if [ $VMAF_MODE -gt 0 ]
+        then
+            buildVmafModeCrfArray $MAX_CRF $MIN_CRF
+        else
+            buildCrfArray $MIN_CRF $MAX_CRF
+        fi
         for CRF in "${CRFS[@]}"
         do
             echo Running preset="$PRESET", tune="$TUNE", crf="$CRF"
@@ -139,9 +165,9 @@ do
             do
                 runEncode "$REF_FILE"
             done
-            THIS_FILESIZE=$(du -s -B1 "$ENC_DIR" | grep -Poh -m 1 "([0-9]{1,999})(?=\s)")
-            if floatLessThanPercent "$THIS_FILESIZE" "$REF_FILESIZE" "$SIZE_MULTIPLIER"
+            if [ $VMAF_MODE -gt 0 ]
             then
+                PREV_VMAF=90
                 echo Continuing with VMAF: 0"$(bc <<< "scale=5; $THIS_FILESIZE / $REF_FILESIZE")"X file size
                 for REF_FILE in $REF_DIR/*
                 do
@@ -151,26 +177,60 @@ do
                 VMAF_SUM=$( IFS="+"; bc <<< "${VMAF[*]}" )
                 THIS_VMAF=$(bc <<< "scale=7; $VMAF_SUM / ${#VMAF[@]}")
                 if floatLessThan "$PREV_VMAF" "$THIS_VMAF"
-                then
-                    updateBest
-                elif floatEquals "$PREV_VMAF" "$THIS_VMAF"
-                then
-                    if [ "$THIS_FILESIZE" -lt "$PREV_FILESIZE" ]
                     then
-                        echo Same quality result: vmaf="$THIS_VMAF" but smaller file size.
                         updateBest
+                    elif floatEquals "$PREV_VMAF" "$THIS_VMAF"
+                    then
+                        if [ "$THIS_FILESIZE" -lt "$PREV_FILESIZE" ]
+                        then
+                            echo Same quality result: vmaf="$THIS_VMAF" but smaller file size.
+                            updateBest
+                        else
+                            echo Same quality result: vmaf="$THIS_VMAF" but larger or same file size.  Retaining previous best preset="$BEST_PRESET", tune="$BEST_TUNE", crf="$BEST_CRF"
+                        fi
                     else
-                        echo Same quality result: vmaf="$THIS_VMAF" but larger or same file size.  Retaining previous best preset="$BEST_PRESET", tune="$BEST_TUNE", crf="$BEST_CRF"
+                        echo Lower quality result: vmaf="$THIS_VMAF" \< "$PREV_VMAF".  Retaining previous best preset="$BEST_PRESET", tune="$BEST_TUNE", crf="$BEST_CRF"
+                        rm "$ENC_DIR"/*
+                        break
                     fi
                 else
-                    echo Lower quality result: vmaf="$THIS_VMAF" \< "$PREV_VMAF".  Retaining previous best preset="$BEST_PRESET", tune="$BEST_TUNE", crf="$BEST_CRF"
-                    rm "$ENC_DIR"/*
-                    break
+                    echo Too lossy: "$THIS_VMAF smaller than $PREV_VMAF"
                 fi
+                rm "$ENC_DIR"/*
             else
-                echo Too big: "$(bc <<< "scale=5; $THIS_FILESIZE / $REF_FILESIZE")"X file size
+                THIS_FILESIZE=$(du -s -B1 "$ENC_DIR" | grep -Poh -m 1 "([0-9]{1,999})(?=\s)")
+                if floatLessThanPercent "$THIS_FILESIZE" "$REF_FILESIZE" "$SIZE_MULTIPLIER"
+                then
+                    echo Continuing with VMAF: 0"$(bc <<< "scale=5; $THIS_FILESIZE / $REF_FILESIZE")"X file size
+                    for REF_FILE in $REF_DIR/*
+                    do
+                        runVmaf "$REF_FILE"
+                    done
+                    VMAF=( $VMAF )
+                    VMAF_SUM=$( IFS="+"; bc <<< "${VMAF[*]}" )
+                    THIS_VMAF=$(bc <<< "scale=7; $VMAF_SUM / ${#VMAF[@]}")
+                    if floatLessThan "$PREV_VMAF" "$THIS_VMAF"
+                    then
+                        updateBest
+                    elif floatEquals "$PREV_VMAF" "$THIS_VMAF"
+                    then
+                        if [ "$THIS_FILESIZE" -lt "$PREV_FILESIZE" ]
+                        then
+                            echo Same quality result: vmaf="$THIS_VMAF" but smaller file size.
+                            updateBest
+                        else
+                            echo Same quality result: vmaf="$THIS_VMAF" but larger or same file size.  Retaining previous best preset="$BEST_PRESET", tune="$BEST_TUNE", crf="$BEST_CRF"
+                        fi
+                    else
+                        echo Lower quality result: vmaf="$THIS_VMAF" \< "$PREV_VMAF".  Retaining previous best preset="$BEST_PRESET", tune="$BEST_TUNE", crf="$BEST_CRF"
+                        rm "$ENC_DIR"/*
+                        break
+                    fi
+                else
+                    echo Too big: "$(bc <<< "scale=5; $THIS_FILESIZE / $REF_FILESIZE")"X file size
+                fi
+                rm "$ENC_DIR"/*
             fi
-            rm "$ENC_DIR"/*
         done
         MIN_CRF=$(bc <<< "scale=2; ($CRF*0.75)")
         MIN_CRF=$(bc <<< "($MIN_CRF+0.5)/1")
